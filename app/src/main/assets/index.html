@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Blu-LinQ | Strict Dual-Node Web Bluetooth Relay</title>
+
+  <!-- PWA & Mobile Web Meta -->
+  <meta name="theme-color" content="#020617" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="Strict hardware-verified Web Bluetooth controller for ESP32 Node A (Sender) and Node B (Receiver)" />
+
+  <style>
+    /* CSS Reset & Modern Tailwind Slate Dark Theme */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg-slate-950: #020617;
+      --bg-slate-900: #0f172a;
+      --bg-slate-800: #1e293b;
+      --bg-slate-700: #334155;
+      --border-slate-800: #1e293b;
+      --border-slate-700: #334155;
+      --text-slate-100: #f8fafc;
+      --text-slate-300: #cbd5e1;
+      --text-slate-400: #94a3b8;
+      --text-slate-500: #64748b;
+      --sky-400: #38bdf8;
+      --sky-500: #0ea5e9;
+      --blue-600: #2563eb;
+      --emerald-500: #10b981;
+      --emerald-400: #34d399;
+      --rose-500: #f43f5e;
+      --rose-600: #e11d48;
+      --amber-500: #f59e0b;
+      --amber-400: #fbbf24;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-slate-950);
+      color: var(--text-slate-100);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 36px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* System Unclosable / Persistent Error Banners */
+    .system-banner {
+      display: none;
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      font-family: var(--font-mono);
+      line-height: 1.45;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .system-banner.fatal {
+      display: flex;
+      background-color: rgba(225, 29, 72, 0.15);
+      border: 1px solid var(--rose-600);
+      color: #fecdd3;
+    }
+
+    .system-banner.warning {
+      display: flex;
+      background-color: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--amber-500);
+      color: #fef08a;
+    }
+
+    /* Top Brand Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background-color: var(--bg-slate-900);
+      border: 1px solid var(--border-slate-800);
+      border-radius: var(--radius-md);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      background: linear-gradient(135deg, var(--sky-400), var(--blue-600));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-icon svg {
+      width: 18px;
+      height: 18px;
+      fill: none;
+      stroke: #020617;
+      stroke-width: 2.2;
+    }
+
+    .brand-text h1 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      color: var(--text-slate-100);
+      font-family: var(--font-mono);
+      line-height: 1.1;
+    }
+
+    .brand-text p {
+      font-size: 0.7rem;
+      color: var(--text-slate-400);
+      letter-spacing: 0.02em;
+    }
+
+    .hw-badge {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--sky-400);
+      background-color: rgba(56, 189, 248, 0.1);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    /* Segmented Mode Switcher (Sender vs Receiver Phone) */
+    .role-switcher {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background-color: var(--bg-slate-900);
+      padding: 6px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-slate-800);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-slate-400);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 10px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background-color: var(--bg-slate-800);
+      color: var(--sky-400);
+      border: 1px solid var(--border-slate-700);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .tab-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--rose-500);
+      box-shadow: 0 0 6px rgba(244, 63, 94, 0.6);
+      transition: background-color 0.2s;
+    }
+
+    .tab-dot.connected {
+      background-color: var(--emerald-500) !important;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8) !important;
+    }
+
+    .tab-dot.connecting {
+      background-color: var(--amber-500) !important;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.8) !important;
+      animation: pulseDot 1s infinite alternate;
+    }
+
+    @keyframes pulseDot {
+      from { transform: scale(0.85); opacity: 0.7; }
+      to { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--bg-slate-900);
+      border: 1px solid var(--border-slate-800);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title {
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-slate-400);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Device Connection Status Bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-slate-950);
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-slate-800);
+      gap: 12px;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    /* Hardware Connection Indicators: Red, Amber, Green */
+    .status-light {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background-color: var(--rose-500);
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.8);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+
+    .status-light.connecting {
+      background-color: var(--amber-500);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.9);
+      animation: pulseLight 1s infinite alternate;
+    }
+
+    .status-light.connected {
+      background-color: var(--emerald-500);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+      animation: none;
+    }
+
+    @keyframes pulseLight {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    .status-info h4 {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--rose-500);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-info h4.connecting { color: var(--amber-400); }
+    .status-info h4.connected { color: var(--emerald-400); }
+
+    .status-info p {
+      font-size: 0.7rem;
+      color: var(--text-slate-400);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Inline Alert Banner for Sudden Hardware Dropouts */
+    .inline-notice {
+      display: none;
+      background-color: rgba(244, 63, 94, 0.15);
+      border: 1px solid var(--rose-600);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: #fda4af;
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .inline-notice.show {
+      display: flex;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .btn:disabled {
+      opacity: 0.4 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+      filter: grayscale(40%);
+    }
+
+    .btn-connect {
+      background-color: var(--sky-500);
+      color: #020617;
+      white-space: nowrap;
+    }
+
+    .btn-connect:hover:not(:disabled) { background-color: var(--sky-400); }
+
+    .btn-connecting {
+      background-color: var(--amber-500);
+      color: #020617;
+      cursor: wait;
+      white-space: nowrap;
+    }
+
+    .btn-disconnect {
+      background-color: rgba(244, 63, 94, 0.12);
+      color: var(--rose-500);
+      border: 1px solid var(--rose-500);
+      white-space: nowrap;
+    }
+
+    .btn-disconnect:hover:not(:disabled) {
+      background-color: rgba(244, 63, 94, 0.25);
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, var(--sky-400), var(--blue-600));
+      color: #020617;
+      font-size: 0.95rem;
+      padding: 14px;
+      width: 100%;
+      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-slate-800);
+      color: var(--text-slate-300);
+      border: 1px solid var(--border-slate-700);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: var(--border-slate-700);
+      color: var(--text-slate-100);
+    }
+
+    /* Quick Action Presets */
+    .presets-title {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-slate-400);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .preset-btn {
+      padding: 10px 4px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 0.8rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .preset-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .preset-help { background-color: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.4); color: #fda4af; }
+    .preset-fire { background-color: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; }
+    .preset-medic { background-color: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; }
+    .preset-ok { background-color: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+
+    /* Text Input Area */
+    .input-box {
+      width: 100%;
+      background-color: var(--bg-slate-950);
+      border: 1px solid var(--border-slate-700);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text-slate-100);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, opacity 0.2s;
+    }
+
+    .input-box:disabled {
+      background-color: rgba(2, 6, 23, 0.6);
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: var(--border-slate-800);
+    }
+
+    .input-box:focus:not(:disabled) {
+      border-color: var(--sky-400);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .input-warning {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--amber-400);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Receiver Emergency Alert Banner */
+    .emergency-alert-card {
+      background: linear-gradient(135deg, rgba(225, 29, 72, 0.25), rgba(15, 23, 42, 0.95));
+      border: 2px solid var(--rose-600);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      animation: alertPulse 1.4s infinite ease-in-out;
+    }
+
+    @keyframes alertPulse {
+      0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(225, 29, 72, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+    }
+
+    .alert-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .alert-badge {
+      background-color: var(--rose-600);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .alert-time {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-slate-300);
+    }
+
+    .alert-content {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: #ffffff;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      word-break: break-word;
+    }
+
+    .alert-meta {
+      font-size: 0.74rem;
+      color: var(--text-slate-300);
+      font-family: var(--font-mono);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      border-top: 1px solid rgba(225, 29, 72, 0.35);
+      padding-top: 8px;
+    }
+
+    /* Logs Streams */
+    .log-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .log-container::-webkit-scrollbar { width: 4px; }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border-slate-700); border-radius: 4px; }
+
+    .log-item {
+      background-color: var(--bg-slate-950);
+      border: 1px solid var(--border-slate-800);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-slate-400);
+    }
+
+    .log-payload {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-slate-100);
+      word-break: break-word;
+    }
+
+    .log-payload.emergency { color: #f87171; }
+
+    .log-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-slate-500);
+    }
+
+    .badge-status {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-sent {
+      background-color: rgba(56, 189, 248, 0.15);
+      color: var(--sky-400);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .badge-received {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--emerald-500);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-ack {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--amber-500);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .empty-placeholder {
+      text-align: center;
+      padding: 26px 16px;
+      color: var(--text-slate-500);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      border: 1px dashed var(--border-slate-800);
+      border-radius: var(--radius-sm);
+    }
+
+    /* Bluetooth Specs Notice Bar */
+    .specs-card {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      color: var(--text-slate-400);
+      background-color: var(--bg-slate-900);
+      border: 1px solid var(--border-slate-800);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      line-height: 1.5;
+    }
+
+    .specs-card span.code { color: var(--sky-400); }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background-color: var(--bg-slate-800);
+      color: var(--text-slate-100);
+      border: 1px solid var(--border-slate-700);
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 0.82rem;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      z-index: 999;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- Unclosable Warning: Web Bluetooth Unsupported -->
+    <div id="unsupportedBanner" class="system-banner fatal">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      <div>
+        <strong>Web Bluetooth Unsupported</strong><br />
+        Web Bluetooth is not supported on this browser. Please use Chrome on Android over HTTPS.
+      </div>
+    </div>
+
+    <!-- Warning Banner: Bluetooth is Powered OFF -->
+    <div id="btOffBanner" class="system-banner warning">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 12l5 5V3l-5 5h10l-5-5v18l5-5H7z"></path></svg>
+      <div>
+        <strong>Bluetooth is Turned OFF</strong><br />
+        Bluetooth adapter is unavailable or disabled. Please turn ON Bluetooth on your phone and try again.
+      </div>
+    </div>
+
+    <!-- Top Header -->
+    <header>
+      <div class="brand-title">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 12l5 5V3l-5 5h10l-5-5v18l5-5H7z" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>BLU-LINQ</h1>
+          <p>Off-Grid Dual-Node Web Bluetooth Relay</p>
+        </div>
+      </div>
+
+      <div class="hw-badge">
+        <span>⚡ HW-STRICT</span>
+      </div>
+    </header>
+
+    <!-- Role Switcher Segmented Tabs -->
+    <nav class="role-switcher" role="tablist">
+      <button id="tabSender" class="tab-btn active" role="tab" aria-selected="true">
+        <span class="tab-dot" id="dotSender"></span>
+        Sender (ESP32_NODE_A)
+      </button>
+      <button id="tabReceiver" class="tab-btn" role="tab" aria-selected="false">
+        <span class="tab-dot" id="dotReceiver"></span>
+        Receiver (ESP32_NODE_B)
+      </button>
+    </nav>
+
+    <!-- ======================================================== -->
+    <!-- 1. SENDER PHONE (TRANSMITTER MODE) - STRICT TO NODE A     -->
+    <!-- ======================================================== -->
+    <main id="viewSender" class="tab-view">
+      
+      <!-- Connection Card -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+            Sender Phone Interface
+          </span>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--sky-400)">ESP32_NODE_A STRICT</span>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-left">
+            <div id="lightSender" class="status-light"></div>
+            <div class="status-info">
+              <h4 id="statusTextSender">Disconnected</h4>
+              <p id="subStatusTextSender">Physical ESP32_NODE_A not connected</p>
+            </div>
+          </div>
+          <div>
+            <button id="btnConnectSender" class="btn btn-connect">Connect to ESP32_NODE_A</button>
+            <button id="btnDisconnectSender" class="btn btn-disconnect hidden">Disconnect</button>
+          </div>
+        </div>
+
+        <!-- Inline Sudden Dropout Notice -->
+        <div id="dropoutNoticeSender" class="inline-notice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>Connection to ESP32 lost. Check hardware power.</span>
+        </div>
+
+        <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-slate-400); display:flex; justify-content:space-between;">
+          <span id="gpsCoordText">📍 Locating GPS...</span>
+          <span id="txCountBadge">0 Sent</span>
+        </div>
+      </section>
+
+      <!-- Message Composer Card -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">Compose Alert Message</span>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--text-slate-400)">RX Char: 6e400002</span>
+        </div>
+
+        <!-- Quick Action Presets -->
+        <div>
+          <p class="presets-title">Quick-Action Presets (Auto-Send)</p>
+          <div class="presets-grid" style="margin-top:6px;">
+            <button class="preset-btn preset-help" id="presetHelp" disabled onclick="handlePresetClick('HELP')">
+              <span>HELP</span>
+            </button>
+            <button class="preset-btn preset-fire" id="presetFire" disabled onclick="handlePresetClick('FIRE')">
+              <span>FIRE</span>
+            </button>
+            <button class="preset-btn preset-medic" id="presetMedic" disabled onclick="handlePresetClick('MEDIC')">
+              <span>MEDIC</span>
+            </button>
+            <button class="preset-btn preset-ok" id="presetOk" disabled onclick="handlePresetClick('OK')">
+              <span>OK</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Input & Send Action -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <input 
+            type="text" 
+            id="messageInputSender" 
+            class="input-box" 
+            placeholder="Connect to ESP32_NODE_A to enter alert" 
+            autocomplete="off" 
+            maxlength="160"
+            disabled
+          />
+          <div id="txLockNotice" class="input-warning">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            <span>Communication locked. Verified GATT link to ESP32_NODE_A required.</span>
+          </div>
+          <button id="btnSendAlert" class="btn btn-send" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            Send Alert
+          </button>
+        </div>
+      </section>
+
+      <!-- Sent Messages Log Box -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">Sent Outgoing Alerts Log</span>
+          <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.72rem" onclick="clearSenderLog()">Clear</button>
+        </div>
+        <div id="logListSender" class="log-container">
+          <div class="empty-placeholder">No outgoing alerts sent yet.</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ======================================================== -->
+    <!-- 2. RECEIVER PHONE (LISTENER MODE) - STRICT TO NODE B     -->
+    <!-- ======================================================== -->
+    <main id="viewReceiver" class="tab-view hidden">
+      
+      <!-- Connection Card -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Receiver Phone Interface
+          </span>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--sky-400)">ESP32_NODE_B STRICT</span>
+        </div>
+
+        <div class="status-bar">
+          <div class="status-left">
+            <div id="lightReceiver" class="status-light"></div>
+            <div class="status-info">
+              <h4 id="statusTextReceiver">Disconnected</h4>
+              <p id="subStatusTextReceiver">Physical ESP32_NODE_B not connected</p>
+            </div>
+          </div>
+          <div>
+            <button id="btnConnectReceiver" class="btn btn-connect">Connect to ESP32_NODE_B</button>
+            <button id="btnDisconnectReceiver" class="btn btn-disconnect hidden">Disconnect</button>
+          </div>
+        </div>
+
+        <!-- Inline Sudden Dropout Notice -->
+        <div id="dropoutNoticeReceiver" class="inline-notice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          <span>Connection to ESP32 lost. Check hardware power.</span>
+        </div>
+
+        <div style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-slate-400); display:flex; justify-content:space-between;">
+          <span id="rxStatusLabel">Awaiting Verified ESP32_NODE_B Connection...</span>
+          <span id="rxCountBadge">0 Received</span>
+        </div>
+      </section>
+
+      <!-- Prominent Incoming Alert Banner -->
+      <div id="emergencyAlertCard" class="emergency-alert-card">
+        <div class="alert-header">
+          <span class="alert-badge">EMERGENCY ALERT RECEIVED</span>
+          <span id="emergencyTime" class="alert-time">--:--:--</span>
+        </div>
+        <div id="emergencyContent" class="alert-content">ALERT PAYLOAD</div>
+        <div class="alert-meta">
+          <span id="emergencyOrigin">Origin: ESP32_NODE_A ➔ ESP32_NODE_B</span>
+          <span id="emergencyLocation">GPS: 37.7749° N, 122.4194° W</span>
+        </div>
+      </div>
+
+      <!-- Timestamped Message Log History -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">Chronological Relay Log</span>
+          <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.72rem" onclick="clearReceiverLog()">Clear Log</button>
+        </div>
+        <div id="logListReceiver" class="log-container">
+          <div class="empty-placeholder">No relayed messages received from Node B yet.</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bluetooth NUS Protocol Architecture Reference -->
+    <footer class="specs-card">
+      <div><strong>Service:</strong> <span class="code">6e400001-b5a3-f393-e0a9-e50e24dcca9e</span> (Nordic UART)</div>
+      <div><strong>Sender Phone:</strong> Strict filter ➔ <span class="code">ESP32_NODE_A</span> (RX 6e400002 Write)</div>
+      <div><strong>Receiver Phone:</strong> Strict filter ➔ <span class="code">ESP32_NODE_B</span> (TX 6e400003 Notify)</div>
+    </footer>
+
+  </div>
+
+  <!-- Global Toast Notification -->
+  <div id="toast">
+    <span id="toastMsg">Ready</span>
+  </div>
+
+  <script>
+    /**
+     * BLU-LINQ Web Bluetooth Controller
+     * ZERO DEPENDENCIES • STRICT HARDWARE VERIFICATION
+     */
+
+    // Nordic UART Service (NUS) Specifications
+    const NUS_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const NUS_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Phone -> Node A (Write)
+    const NUS_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Node B -> Phone (Notify)
+
+    // Strict Device Matching Names
+    const TARGET_NAME_SENDER = 'ESP32_NODE_A';
+    const TARGET_NAME_RECEIVER = 'ESP32_NODE_B';
+
+    // State Variables - STRICTLY DISCONNECTED BY DEFAULT
+    const state = {
+      activeRole: 'sender', // 'sender' or 'receiver'
+
+      // Sender (Node A) State
+      deviceSender: null,
+      serverSender: null,
+      rxCharSender: null,
+      isConnectedSender: false,
+      sentCount: 0,
+
+      // Receiver (Node B) State
+      deviceReceiver: null,
+      serverReceiver: null,
+      txCharReceiver: null,
+      isConnectedReceiver: false,
+      recvCount: 0,
+
+      // Sender GPS
+      currentGps: { lat: 37.7749, lng: -122.4194 }
+    };
+
+    // DOM Elements - Shell & Banners
+    const unsupportedBanner = document.getElementById('unsupportedBanner');
+    const btOffBanner = document.getElementById('btOffBanner');
+    const tabSender = document.getElementById('tabSender');
+    const tabReceiver = document.getElementById('tabReceiver');
+    const viewSender = document.getElementById('viewSender');
+    const viewReceiver = document.getElementById('viewReceiver');
+    const dotSender = document.getElementById('dotSender');
+    const dotReceiver = document.getElementById('dotReceiver');
+    const toastEl = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // DOM Elements - Sender (Transmitter)
+    const lightSender = document.getElementById('lightSender');
+    const statusTextSender = document.getElementById('statusTextSender');
+    const subStatusTextSender = document.getElementById('subStatusTextSender');
+    const btnConnectSender = document.getElementById('btnConnectSender');
+    const btnDisconnectSender = document.getElementById('btnDisconnectSender');
+    const dropoutNoticeSender = document.getElementById('dropoutNoticeSender');
+    const messageInputSender = document.getElementById('messageInputSender');
+    const btnSendAlert = document.getElementById('btnSendAlert');
+    const txLockNotice = document.getElementById('txLockNotice');
+    const logListSender = document.getElementById('logListSender');
+    const txCountBadge = document.getElementById('txCountBadge');
+    const gpsCoordText = document.getElementById('gpsCoordText');
+    const presetButtons = [
+      document.getElementById('presetHelp'),
+      document.getElementById('presetFire'),
+      document.getElementById('presetMedic'),
+      document.getElementById('presetOk')
+    ];
+
+    // DOM Elements - Receiver (Listener)
+    const lightReceiver = document.getElementById('lightReceiver');
+    const statusTextReceiver = document.getElementById('statusTextReceiver');
+    const subStatusTextReceiver = document.getElementById('subStatusTextReceiver');
+    const btnConnectReceiver = document.getElementById('btnConnectReceiver');
+    const btnDisconnectReceiver = document.getElementById('btnDisconnectReceiver');
+    const dropoutNoticeReceiver = document.getElementById('dropoutNoticeReceiver');
+    const rxStatusLabel = document.getElementById('rxStatusLabel');
+    const rxCountBadge = document.getElementById('rxCountBadge');
+    const emergencyAlertCard = document.getElementById('emergencyAlertCard');
+    const emergencyContent = document.getElementById('emergencyContent');
+    const emergencyTime = document.getElementById('emergencyTime');
+    const emergencyLocation = document.getElementById('emergencyLocation');
+    const logListReceiver = document.getElementById('logListReceiver');
+
+    // Toast Helper
+    let toastTimer = null;
+    function showToast(msg) {
+      toastMsg.textContent = msg;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 3200);
+    }
+
+    function getTimestamp() {
+      const now = new Date();
+      return now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+    }
+
+    // Role Tab Switching
+    function switchRole(role) {
+      state.activeRole = role;
+      if (role === 'sender') {
+        tabSender.classList.add('active');
+        tabSender.setAttribute('aria-selected', 'true');
+        tabReceiver.classList.remove('active');
+        tabReceiver.setAttribute('aria-selected', 'false');
+        viewSender.classList.remove('hidden');
+        viewReceiver.classList.add('hidden');
+      } else {
+        tabReceiver.classList.add('active');
+        tabReceiver.setAttribute('aria-selected', 'true');
+        tabSender.classList.remove('active');
+        tabSender.setAttribute('aria-selected', 'false');
+        viewReceiver.classList.remove('hidden');
+        viewSender.classList.add('hidden');
+      }
+    }
+
+    tabSender.addEventListener('click', () => switchRole('sender'));
+    tabReceiver.addEventListener('click', () => switchRole('receiver'));
+
+    // =========================================================================
+    // 2. STRICT BLUETOOTH AVAILABILITY & POWER CHECK
+    // =========================================================================
+    async function verifyBluetoothPreconditions() {
+      // 1. Web Bluetooth API existence check
+      if (!navigator.bluetooth) {
+        unsupportedBanner.style.display = 'flex';
+        alert("Web Bluetooth is not supported on this browser. Please use Chrome on Android over HTTPS.");
+        return false;
+      }
+      unsupportedBanner.style.display = 'none';
+
+      // 2. Bluetooth Adapter availability / power check
+      if (navigator.bluetooth.getAvailability) {
+        try {
+          const isAvailable = await navigator.bluetooth.getAvailability();
+          if (!isAvailable) {
+            btOffBanner.style.display = 'flex';
+            alert("Bluetooth is turned OFF. Please turn ON Bluetooth on your phone and try again.");
+            return false;
+          }
+          btOffBanner.style.display = 'none';
+        } catch (e) {
+          console.warn("getAvailability check skipped:", e);
+        }
+      }
+
+      return true;
+    }
+
+    // Dynamic Bluetooth Adapter Listener
+    if (navigator.bluetooth && navigator.bluetooth.addEventListener) {
+      navigator.bluetooth.addEventListener('availabilitychanged', (e) => {
+        if (!e.value) {
+          btOffBanner.style.display = 'flex';
+          // If Bluetooth drops, forcefully disconnect any active hardware
+          if (state.isConnectedSender) onSenderGattDisconnected();
+          if (state.isConnectedReceiver) onReceiverGattDisconnected();
+        } else {
+          btOffBanner.style.display = 'none';
+        }
+      });
+    }
+
+    // Geolocation Setup
+    function initGeolocation() {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            state.currentGps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            gpsCoordText.textContent = `📍 ${state.currentGps.lat.toFixed(4)}°, ${state.currentGps.lng.toFixed(4)}°`;
+          },
+          () => { gpsCoordText.textContent = `📍 GPS Off`; },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+      }
+    }
+
+    // =========================================================================
+    // 3 & 4. SENDER PHONE: HARDWARE VERIFICATION & STRICT ROLE MATCHING
+    // =========================================================================
+
+    function setSenderConnectingUI() {
+      state.isConnectedSender = false;
+      dropoutNoticeSender.classList.remove('show');
+
+      lightSender.className = 'status-light connecting';
+      statusTextSender.className = 'connecting';
+      statusTextSender.textContent = 'Connecting...';
+      subStatusTextSender.textContent = `Negotiating with ${TARGET_NAME_SENDER}...`;
+      dotSender.className = 'tab-dot connecting';
+
+      btnConnectSender.textContent = 'Connecting...';
+      btnConnectSender.className = 'btn btn-connecting';
+      btnConnectSender.disabled = true;
+      btnDisconnectSender.classList.add('hidden');
+
+      setSenderInputsEnabled(false);
+    }
+
+    function setSenderConnectedUI(deviceName) {
+      state.isConnectedSender = true;
+      dropoutNoticeSender.classList.remove('show');
+
+      lightSender.className = 'status-light connected';
+      statusTextSender.className = 'connected';
+      statusTextSender.textContent = `Connected to ${deviceName}`;
+      subStatusTextSender.textContent = 'GATT Link Verified • RX Characteristic Ready';
+      dotSender.className = 'tab-dot connected';
+
+      btnConnectSender.classList.add('hidden');
+      btnConnectSender.disabled = false;
+      btnConnectSender.textContent = `Connect to ${TARGET_NAME_SENDER}`;
+      btnConnectSender.className = 'btn btn-connect';
+
+      btnDisconnectSender.classList.remove('hidden');
+      btnDisconnectSender.disabled = false;
+
+      // UNLOCK UI: Now that connection is fully confirmed
+      setSenderInputsEnabled(true);
+    }
+
+    function setSenderDisconnectedUI(reason = `Physical ${TARGET_NAME_SENDER} not connected`) {
+      state.isConnectedSender = false;
+      state.deviceSender = null;
+      state.serverSender = null;
+      state.rxCharSender = null;
+
+      lightSender.className = 'status-light';
+      statusTextSender.className = '';
+      statusTextSender.textContent = 'Disconnected';
+      subStatusTextSender.textContent = reason;
+      dotSender.className = 'tab-dot';
+
+      btnConnectSender.classList.remove('hidden');
+      btnConnectSender.disabled = false;
+      btnConnectSender.textContent = `Connect to ${TARGET_NAME_SENDER}`;
+      btnConnectSender.className = 'btn btn-connect';
+
+      btnDisconnectSender.classList.add('hidden');
+
+      // STRICTLY LOCK UI
+      setSenderInputsEnabled(false);
+    }
+
+    function setSenderInputsEnabled(enabled) {
+      messageInputSender.disabled = !enabled;
+      messageInputSender.placeholder = enabled
+        ? "Enter alert (e.g. HELP, FIRE, OK)"
+        : `Connect to ${TARGET_NAME_SENDER} to enter alert`;
+      btnSendAlert.disabled = !enabled;
+      presetButtons.forEach(btn => btn.disabled = !enabled);
+
+      if (enabled) {
+        txLockNotice.classList.add('hidden');
+      } else {
+        txLockNotice.classList.remove('hidden');
+      }
+    }
+
+    async function connectSenderHardware() {
+      const ok = await verifyBluetoothPreconditions();
+      if (!ok) return;
+
+      setSenderConnectingUI();
+
+      try {
+        // Request strictly with name filter for ESP32_NODE_A
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: TARGET_NAME_SENDER }],
+          optionalServices: [NUS_SERVICE_UUID]
+        });
+
+        // Strict Role-Matching verification
+        if (device.name !== TARGET_NAME_SENDER) {
+          throw new Error(`Wrong device selected. Sender Phone must connect to ${TARGET_NAME_SENDER}.`);
+        }
+
+        state.deviceSender = device;
+
+        // Attach Real-Time Disconnect Listener
+        device.removeEventListener('gattserverdisconnected', onSenderGattDisconnected);
+        device.addEventListener('gattserverdisconnected', onSenderGattDisconnected);
+
+        // Perform Physical GATT connection
+        const server = await device.gatt.connect();
+        state.serverSender = server;
+
+        if (!server || !server.connected) {
+          throw new Error('GATT Server disconnected');
+        }
+
+        // Retrieve Primary Service & RX Characteristic (Write)
+        const service = await server.getPrimaryService(NUS_SERVICE_UUID);
+        const rxChar = await service.getCharacteristic(NUS_RX_CHAR_UUID);
+        state.rxCharSender = rxChar;
+
+        // Verify connection stayed alive
+        if (!server.connected) {
+          throw new Error('GATT connection dropped during characteristic discovery');
+        }
+
+        // Transition to Connected ONLY NOW
+        setSenderConnectedUI(device.name);
+        showToast(`Connected to ${device.name}`);
+
+      } catch (err) {
+        console.warn('Sender Connection Error:', err);
+        setSenderDisconnectedUI(
+          err.name === 'NotFoundError'
+            ? 'Pairing cancelled by user'
+            : err.message
+        );
+        if (err.name !== 'NotFoundError') {
+          alert(err.message || 'ESP32 unreachable');
+        }
+      }
+    }
+
+    // 5. Real-Time Hardware Dropout Handling for Sender
+    function onSenderGattDisconnected() {
+      console.warn('ESP32_NODE_A disconnected');
+      setSenderDisconnectedUI('Physical ESP32_NODE_A disconnected');
+      dropoutNoticeSender.classList.add('show');
+      showToast('⚠️ Connection to ESP32 lost. Check hardware power.');
+    }
+
+    function disconnectSender() {
+      if (state.deviceSender?.gatt?.connected) {
+        try { state.deviceSender.gatt.disconnect(); } catch (e) {}
+      }
+      setSenderDisconnectedUI('Disconnected by user');
+      showToast('Disconnected from ESP32_NODE_A');
+    }
+
+    btnConnectSender.addEventListener('click', connectSenderHardware);
+    btnDisconnectSender.addEventListener('click', disconnectSender);
+
+    // =========================================================================
+    // 3 & 4. RECEIVER PHONE: HARDWARE VERIFICATION & STRICT ROLE MATCHING
+    // =========================================================================
+
+    function setReceiverConnectingUI() {
+      state.isConnectedReceiver = false;
+      dropoutNoticeReceiver.classList.remove('show');
+
+      lightReceiver.className = 'status-light connecting';
+      statusTextReceiver.className = 'connecting';
+      statusTextReceiver.textContent = 'Connecting...';
+      subStatusTextReceiver.textContent = `Negotiating with ${TARGET_NAME_RECEIVER}...`;
+      dotReceiver.className = 'tab-dot connecting';
+
+      btnConnectReceiver.textContent = 'Connecting...';
+      btnConnectReceiver.className = 'btn btn-connecting';
+      btnConnectReceiver.disabled = true;
+      btnDisconnectReceiver.classList.add('hidden');
+      rxStatusLabel.textContent = `Connecting to ${TARGET_NAME_RECEIVER}...`;
+    }
+
+    function setReceiverConnectedUI(deviceName) {
+      state.isConnectedReceiver = true;
+      dropoutNoticeReceiver.classList.remove('show');
+
+      lightReceiver.className = 'status-light connected';
+      statusTextReceiver.className = 'connected';
+      statusTextReceiver.textContent = `Connected to ${deviceName}`;
+      subStatusTextReceiver.textContent = 'GATT Link Verified • TX Notifications Active';
+      dotReceiver.className = 'tab-dot connected';
+
+      btnConnectReceiver.classList.add('hidden');
+      btnConnectReceiver.disabled = false;
+      btnConnectReceiver.textContent = `Connect to ${TARGET_NAME_RECEIVER}`;
+      btnConnectReceiver.className = 'btn btn-connect';
+
+      btnDisconnectReceiver.classList.remove('hidden');
+      btnDisconnectReceiver.disabled = false;
+      rxStatusLabel.textContent = 'Live Wireless Reception Stream Active';
+    }
+
+    function setReceiverDisconnectedUI(reason = `Physical ${TARGET_NAME_RECEIVER} not connected`) {
+      state.isConnectedReceiver = false;
+      state.deviceReceiver = null;
+      state.serverReceiver = null;
+      state.txCharReceiver = null;
+
+      lightReceiver.className = 'status-light';
+      statusTextReceiver.className = '';
+      statusTextReceiver.textContent = 'Disconnected';
+      subStatusTextReceiver.textContent = reason;
+      dotReceiver.className = 'tab-dot';
+
+      btnConnectReceiver.classList.remove('hidden');
+      btnConnectReceiver.disabled = false;
+      btnConnectReceiver.textContent = `Connect to ${TARGET_NAME_RECEIVER}`;
+      btnConnectReceiver.className = 'btn btn-connect';
+
+      btnDisconnectReceiver.classList.add('hidden');
+      rxStatusLabel.textContent = `Awaiting Verified ${TARGET_NAME_RECEIVER} Connection...`;
+    }
+
+    async function connectReceiverHardware() {
+      const ok = await verifyBluetoothPreconditions();
+      if (!ok) return;
+
+      setReceiverConnectingUI();
+
+      try {
+        // Request strictly with name filter for ESP32_NODE_B
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ name: TARGET_NAME_RECEIVER }],
+          optionalServices: [NUS_SERVICE_UUID]
+        });
+
+        // Strict Role-Matching verification
+        if (device.name !== TARGET_NAME_RECEIVER) {
+          throw new Error(`Wrong device selected. Receiver Phone must connect to ${TARGET_NAME_RECEIVER}.`);
+        }
+
+        state.deviceReceiver = device;
+
+        // Attach Real-Time Disconnect Listener
+        device.removeEventListener('gattserverdisconnected', onReceiverGattDisconnected);
+        device.addEventListener('gattserverdisconnected', onReceiverGattDisconnected);
+
+        // Perform Physical GATT connection
+        const server = await device.gatt.connect();
+        state.serverReceiver = server;
+
+        if (!server || !server.connected) {
+          throw new Error('GATT Server disconnected');
+        }
+
+        // Retrieve Primary Service & TX Characteristic (Notify)
+        const service = await server.getPrimaryService(NUS_SERVICE_UUID);
+        const txChar = await service.getCharacteristic(NUS_TX_CHAR_UUID);
+        state.txCharReceiver = txChar;
+
+        // Start Notifications
+        await txChar.startNotifications();
+        txChar.removeEventListener('characteristicvaluechanged', onIncomingNotification);
+        txChar.addEventListener('characteristicvaluechanged', onIncomingNotification);
+
+        if (!server.connected) {
+          throw new Error('GATT connection dropped during notification startup');
+        }
+
+        // Transition to Connected ONLY NOW
+        setReceiverConnectedUI(device.name);
+        showToast(`Connected to ${device.name}`);
+
+      } catch (err) {
+        console.warn('Receiver Connection Error:', err);
+        setReceiverDisconnectedUI(
+          err.name === 'NotFoundError'
+            ? 'Pairing cancelled by user'
+            : err.message
+        );
+        if (err.name !== 'NotFoundError') {
+          alert(err.message || 'ESP32 unreachable');
+        }
+      }
+    }
+
+    // 5. Real-Time Hardware Dropout Handling for Receiver
+    function onReceiverGattDisconnected() {
+      console.warn('ESP32_NODE_B disconnected');
+      setReceiverDisconnectedUI('Physical ESP32_NODE_B disconnected');
+      dropoutNoticeReceiver.classList.add('show');
+      showToast('⚠️ Connection to ESP32 lost. Check hardware power.');
+    }
+
+    function disconnectReceiver() {
+      if (state.deviceReceiver?.gatt?.connected) {
+        try { state.deviceReceiver.gatt.disconnect(); } catch (e) {}
+      }
+      setReceiverDisconnectedUI('Disconnected by user');
+      showToast('Disconnected from ESP32_NODE_B');
+    }
+
+    btnConnectReceiver.addEventListener('click', connectReceiverHardware);
+    btnDisconnectReceiver.addEventListener('click', disconnectReceiver);
+
+    // =========================================================================
+    // 6. COMMUNICATION INTERFACE: SENDER TRANSMISSION
+    // =========================================================================
+
+    async function sendAlertMessage(text) {
+      const msg = text.trim();
+      if (!msg) {
+        showToast('Please enter an alert message');
+        return;
+      }
+
+      // Strict Communication Lock Guard
+      if (!state.isConnectedSender || !state.serverSender?.connected || !state.rxCharSender) {
+        alert(`Communication locked: No verified connection to ${TARGET_NAME_SENDER}!`);
+        setSenderDisconnectedUI('GATT connection not verified');
+        return;
+      }
+
+      const time = getTimestamp();
+      const payload = {
+        src: TARGET_NAME_SENDER,
+        dest: TARGET_NAME_RECEIVER,
+        msg: msg,
+        lat: state.currentGps.lat,
+        lng: state.currentGps.lng,
+        time: time
+      };
+
+      const rawJson = JSON.stringify(payload);
+
+      try {
+        btnSendAlert.disabled = true;
+        const encoder = new TextEncoder();
+        const data = encoder.encode(rawJson + '\n');
+
+        // Write UTF-8 bytes to RX Characteristic
+        if (state.rxCharSender.writeValueWithResponse) {
+          await state.rxCharSender.writeValueWithResponse(data);
+        } else {
+          await state.rxCharSender.writeValue(data);
+        }
+
+        state.sentCount++;
+        txCountBadge.textContent = `${state.sentCount} Sent`;
+        appendSenderLog(msg, time);
+        showToast(`Sent "${msg}" to ${TARGET_NAME_SENDER}`);
+        messageInputSender.value = '';
+
+      } catch (err) {
+        console.error('Transmission write error:', err);
+        showToast(`Transmission failed: ${err.message}`);
+        if (!state.serverSender?.connected) {
+          onSenderGattDisconnected();
+        }
+      } finally {
+        if (state.isConnectedSender) {
+          btnSendAlert.disabled = false;
+        }
+      }
+    }
+
+    function appendSenderLog(msg, time) {
+      if (logListSender.querySelector('.empty-placeholder')) {
+        logListSender.innerHTML = '';
+      }
+      const item = document.createElement('div');
+      item.className = 'log-item';
+      item.innerHTML = `
+        <div class="log-header">
+          <span>TX ➔ ${TARGET_NAME_SENDER}</span>
+          <span>${time}</span>
+        </div>
+        <div class="log-payload ${['HELP', 'FIRE', 'SOS', 'MEDIC'].includes(msg.toUpperCase()) ? 'emergency' : ''}">${escapeHtml(msg)}</div>
+        <div class="log-footer">
+          <span>📍 ${state.currentGps.lat.toFixed(4)}°, ${state.currentGps.lng.toFixed(4)}°</span>
+          <span class="badge-status badge-sent">SENT & VERIFIED</span>
+        </div>
+      `;
+      logListSender.prepend(item);
+    }
+
+    window.clearSenderLog = function() {
+      logListSender.innerHTML = '<div class="empty-placeholder">No outgoing alerts sent yet.</div>';
+      state.sentCount = 0;
+      txCountBadge.textContent = '0 Sent';
+    };
+
+    btnSendAlert.addEventListener('click', () => sendAlertMessage(messageInputSender.value));
+    messageInputSender.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendAlertMessage(messageInputSender.value);
+    });
+
+    window.handlePresetClick = function(presetText) {
+      if (!state.isConnectedSender) {
+        alert(`Cannot send: ${TARGET_NAME_SENDER} is not connected!`);
+        return;
+      }
+      messageInputSender.value = presetText;
+      sendAlertMessage(presetText);
+    };
+
+    // =========================================================================
+    // 6. COMMUNICATION INTERFACE: RECEIVER NOTIFICATIONS & ALERTS
+    // =========================================================================
+
+    function onIncomingNotification(event) {
+      const value = event.target.value;
+      const decoder = new TextDecoder('utf-8');
+      const text = decoder.decode(value);
+      handleReceivedPayload(text);
+    }
+
+    function handleReceivedPayload(raw) {
+      const time = getTimestamp();
+      let alertMsg = raw.trim();
+      let senderName = 'Source Node A';
+      let lat = 37.7749;
+      let lng = -122.4194;
+
+      // Parse JSON if wrapped in braces
+      try {
+        if (raw.startsWith('{') && raw.endsWith('}')) {
+          const parsed = JSON.parse(raw);
+          alertMsg = parsed.msg || alertMsg;
+          if (parsed.lat) lat = parsed.lat;
+          if (parsed.lng) lng = parsed.lng;
+        }
+      } catch (e) {}
+
+      // Split raw incoming text at colon (:) and map N1 / N2 prefixes
+      if (alertMsg.includes(':')) {
+        const colonIndex = alertMsg.indexOf(':');
+        const prefix = alertMsg.substring(0, colonIndex).trim();
+        const body = alertMsg.substring(colonIndex + 1).trim();
+
+        if (prefix.toUpperCase() === 'N1') {
+          senderName = 'Source Node A';
+          alertMsg = body.replace(/^N1:\s*/i, '');
+        } else if (prefix.toUpperCase() === 'N2') {
+          senderName = 'Source Node B';
+          alertMsg = body.replace(/^N2:\s*/i, '');
+        } else if (prefix.toUpperCase().startsWith('N')) {
+          senderName = `Source Node ${prefix.substring(1).trim()}`;
+          alertMsg = body;
+        }
+      }
+
+      state.recvCount++;
+      rxCountBadge.textContent = `${state.recvCount} Received`;
+
+      // Trigger Vibration: navigator.vibrate(500)
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(500); } catch (e) {}
+      }
+
+      // Display Prominent Red Alert Banner
+      emergencyAlertCard.style.display = 'flex';
+      emergencyContent.textContent = alertMsg.toUpperCase();
+      emergencyTime.textContent = time;
+      emergencyLocation.textContent = `GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° W`;
+      document.getElementById('emergencyOrigin').textContent = `Sender: ${senderName} ➔ ${TARGET_NAME_RECEIVER}`;
+
+      appendReceiverLog(senderName, alertMsg, time, lat, lng);
+    }
+
+    function appendReceiverLog(senderName, msg, time, lat, lng) {
+      if (logListReceiver.querySelector('.empty-placeholder')) {
+        logListReceiver.innerHTML = '';
+      }
+      const isEmergency = ['HELP', 'FIRE', 'SOS', 'MEDIC', 'ALARM'].includes(msg.toUpperCase());
+      const item = document.createElement('div');
+      item.className = 'log-item';
+      item.innerHTML = `
+        <div class="log-header">
+          <span style="font-weight:700; color: ${senderName === 'Source Node A' ? 'var(--sky-400)' : 'var(--blue-400)'}">Sender: ${escapeHtml(senderName)}</span>
+          <span>${time}</span>
+        </div>
+        <div class="log-payload ${isEmergency ? 'emergency' : ''}" style="margin: 4px 0 6px 0; font-size: 1.05rem;">${escapeHtml(msg)}</div>
+        <div class="log-footer">
+          <span>RELAY ➔ ${TARGET_NAME_RECEIVER}</span>
+          <span class="badge-status ${isEmergency ? 'badge-ack' : 'badge-received'}">${isEmergency ? 'EMERGENCY' : 'RECEIVED'}</span>
+        </div>
+      `;
+      logListReceiver.prepend(item);
+    }
+
+    window.clearReceiverLog = function() {
+      logListReceiver.innerHTML = '<div class="empty-placeholder">No relayed messages received from Node B yet.</div>';
+      emergencyAlertCard.style.display = 'none';
+      state.recvCount = 0;
+      rxCountBadge.textContent = '0 Received';
+    };
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // =========================================================================
+    // STARTUP INITIALIZATION
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      initGeolocation();
+      verifyBluetoothPreconditions();
+
+      // STRICT INITIAL DISCONNECTED STATE
+      setSenderDisconnectedUI(`Physical ${TARGET_NAME_SENDER} not connected`);
+      setReceiverDisconnectedUI(`Physical ${TARGET_NAME_RECEIVER} not connected`);
+    });
+  </script>
+</body>
+</html>

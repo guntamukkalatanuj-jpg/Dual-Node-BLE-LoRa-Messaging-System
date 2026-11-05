@@ -1,0 +1,6 @@
+{
+  "name": "Blu-LinQ",
+  "description": "Minimalist dual-node ESP32 Bluetooth messaging, real-time signal monitoring, GPS location and data logger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
